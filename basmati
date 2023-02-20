@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+
+from glob import glob
+import time
+import systemd.daemon
+
+MIN_CAPACITY = 30
+MAX_CAPACITY = 70
+
+def find_battery():
+    for base in sorted(glob('/sys/class/power_supply/*')):
+        if open(base+'/type').read().strip() != 'Battery':
+            # Not a battery.
+            continue
+        if open(base+'/scope').read().strip() != 'System':
+            # Not the system battery, but a different battery like a mouse
+            # battery.
+            continue
+        return base
+    # no battery found
+
+def set_behavior(battery, behavior):
+    fp = open(battery+'/charge_behaviour', 'w')
+    fp.write(behavior)
+    fp.close()
+
+
+def monitor():
+    print('Starting...')
+
+    # This is basically a state machine.
+    battery = None
+    started = False
+    while True:
+        if not battery:
+            battery = find_battery()
+            if not battery:
+                print('Waiting for battery...')
+                time.sleep(1)
+                continue
+            # Battery found.
+            print('Started.')
+            systemd.daemon.notify('READY=1')
+        behavior = open(battery+'/charge_behaviour').read().strip()
+        capacity = int(open(battery+'/capacity').read().strip())
+        if capacity < MIN_CAPACITY:
+            # Capacity dropped below minimum charge level, so start charging now.
+            if behavior != 'auto':
+                print('Battery needs more power, starting charge')
+                set_behavior(battery, 'auto')
+        elif capacity >= MAX_CAPACITY:
+            # Battery has enough charge.
+            if behavior != 'inhibit-charge':
+                print('Battery fully charged, stopping charge')
+                set_behavior(battery, 'inhibit-charge')
+        elif not started:
+            # Make sure the battery starts out not charging when it falls
+            # between the low and high water marks on startup.
+            if behavior != 'inhibit-charge':
+                print('Inhibiting charge at startup')
+                set_behavior(battery, 'inhibit-charge')
+        else:
+            # Battery charging behavior is correct.
+            pass
+        started = True
+        time.sleep(60)
+
+
+if __name__ == '__main__':
+    monitor()

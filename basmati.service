@@ -1,0 +1,11 @@
+[Unit]
+Description=Basmati battery status monitor
+
+[Service]
+ExecStart=/usr/local/bin/basmati-daemon
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+Type=notify
+
+[Install]
+WantedBy=multi-user.target
