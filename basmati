@@ -28,19 +28,22 @@ def set_behavior(battery, behavior):
 def monitor():
     print('Starting...')
 
-    # This is basically a state machine.
+    # Wait for the battery to be available.
     battery = None
+    while True:
+        battery = find_battery()
+        if not battery:
+            print('Waiting for battery...')
+            time.sleep(1)
+            continue
+        # Battery found.
+        print('Started.')
+        systemd.daemon.notify('READY=1')
+        break
+
+    # This is basically a state machine.
     started = False
     while True:
-        if not battery:
-            battery = find_battery()
-            if not battery:
-                print('Waiting for battery...')
-                time.sleep(1)
-                continue
-            # Battery found.
-            print('Started.')
-            systemd.daemon.notify('READY=1')
         behavior = open(battery+'/charge_behaviour').read().strip()
         capacity = int(open(battery+'/capacity').read().strip())
         if capacity < MIN_CAPACITY:
