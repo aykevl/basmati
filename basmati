@@ -24,6 +24,11 @@ def set_behavior(battery, behavior):
     fp.write(behavior)
     fp.close()
 
+def set_end_threshold(battery, threshold):
+    fp = open(battery+'/charge_control_end_threshold', 'w')
+    fp.write(str(threshold))
+    fp.close()
+
 
 def monitor():
     print('Starting...')
@@ -40,6 +45,10 @@ def monitor():
         print('Started.')
         systemd.daemon.notify('READY=1')
         break
+
+    # Make sure charging is stopped at a reasonable point even when the system
+    # is suspended.
+    set_end_threshold(battery, MAX_CAPACITY)
 
     # This is basically a state machine.
     started = False
